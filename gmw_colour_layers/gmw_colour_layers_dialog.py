@@ -8,6 +8,7 @@ from qgis.PyQt import QtCore, QtGui
 from qgis.gui import QgsLayerTreeView
 from qgis.core import QgsLayerTreeModel, QgsProject, QgsLayerTreeLayer, QgsPalettedRasterRenderer
 import qgis.utils
+from qgis.utils import iface
 
 from PyQt5.QtWidgets import QAbstractItemView
 from PyQt5 import QtWidgets as QW
@@ -194,6 +195,8 @@ class GMWColourLayersDialog(QW.QDialog):
             
                         # Refresh the legend/TOC to show the updated colour box
                         self.layer_tree_view.refreshLayerSymbology(lyr_name)
+                        # Refresh the main QGIS legend/TOC to show the updated colour box
+                        iface.layerTreeView().refreshLayerSymbology(lyr_name)
                         # Tell everything that the style has changed.
                         lyr.emitStyleChanged()
         
