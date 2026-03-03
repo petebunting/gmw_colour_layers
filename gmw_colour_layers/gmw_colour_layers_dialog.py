@@ -53,7 +53,7 @@ class GMWColourLayersDialog(QW.QDialog):
         """Constructor."""
         QW.QWidget.__init__(self, parent)
         # Set window size. 
-        self.resize(320, 240)
+        self.resize(420, 640)
 
         # Set window title  
         self.setWindowTitle("Colour Layers") 
@@ -82,9 +82,28 @@ class GMWColourLayersDialog(QW.QDialog):
         
         self.mainLayout.addWidget(self.layer_tree_view)
         
+        
+        
         self.guiLabelStep2 = QW.QLabel()
-        self.guiLabelStep2.setText("2. Select Colours Template File:")
+        self.guiLabelStep2.setText("2. Optionally Sort Layers by Year:")
         self.mainLayout.addWidget(self.guiLabelStep2)
+        
+        self.sort_gain_button = QW.QPushButton("Sort Gain")
+        self.sort_loss_button = QW.QPushButton("Sort Loss")
+        sort_button_layout = QW.QHBoxLayout()
+        
+        sort_button_layout.addWidget(self.sort_gain_button)
+        sort_button_layout.addWidget(self.sort_loss_button)
+        
+        self.mainLayout.addLayout(sort_button_layout)
+        self.sort_gain_button.clicked.connect(self.handle_sort_gain)
+        self.sort_loss_button.clicked.connect(self.handle_sort_loss)
+        
+        
+        
+        self.guiLabelStep3 = QW.QLabel()
+        self.guiLabelStep3.setText("3. Select Colours Template File:")
+        self.mainLayout.addWidget(self.guiLabelStep3)
         
         self.file_path_edit = QW.QLineEdit()
         self.file_path_edit.setPlaceholderText("No file selected...")
@@ -103,9 +122,11 @@ class GMWColourLayersDialog(QW.QDialog):
         self.browse_button.clicked.connect(self.select_clrs_lut_file)
         
         
-        self.guiLabelStep3 = QW.QLabel()
-        self.guiLabelStep3.setText("3. Update Layer Colours:")
-        self.mainLayout.addWidget(self.guiLabelStep3)
+        
+        
+        self.guiLabelStep4 = QW.QLabel()
+        self.guiLabelStep4.setText("4. Run to Update Layer Colours:")
+        self.mainLayout.addWidget(self.guiLabelStep4)
         
         
         self.run_button = QW.QPushButton("Run")
@@ -152,6 +173,75 @@ class GMWColourLayersDialog(QW.QDialog):
         # If the user didn't click cancel, update the text box
         if filename:
             self.file_path_edit.setText(filename)
+    
+    def sort_layers(self, gain_order=False):        
+        root = QgsProject.instance().layerTreeRoot()
+        
+        # 1. Get the selected nodes from your plugin's tree view
+        selected_nodes = self.layer_tree_view.selectedNodes()
+        
+        # Filter for only layer nodes (ignore group nodes for now)
+        layers_to_move = [n for n in selected_nodes if isinstance(n, QgsLayerTreeLayer)]
+        
+        if not layers_to_move:
+            return
+            
+        # 2. Determine the "insertion index" 
+        # We find the position of the highest selected layer in the tree
+        # to maintain the general location of the selection.
+        indices = [root.childNodeIndex(n) for n in layers_to_move if n.parent() == root]
+        
+        if not indices:
+            # If layers are inside groups, this logic needs to be deeper.
+            # For now, we assume top-level layers.
+            insert_pos = 0 
+        else:
+            insert_pos = min(indices)
+            
+        
+        years = list(range(1985, 2030, 1))
+        
+        # 3. Sort the selected nodes by name
+        node_dict = dict()
+        for lyr in layers_to_move:
+            for year in years:
+                if f"{year}" in lyr.name():
+                    node_dict[year] = lyr
+                    break
+        
+        sorted_selection = list()
+        if gain_order: # Order for Gain
+            for year in years:
+                 if year in node_dict:
+                    sorted_selection.append(node_dict[year])
+        else: # Order for Loss
+            years.reverse()
+            for year in years:
+                 if year in node_dict:
+                    sorted_selection.append(node_dict[year])
+            
+        # 4. Remove and Re-insert
+        for node in sorted_selection:
+            # Take a clone to re-insert
+            cloned = node.clone()
+            # Remove original
+            parent = node.parent()
+            #node.parent().removeChildNode(node)
+            
+            # Insert into the calculated position
+            #parent.insertChildNode(insert_pos, cloned)
+            parent.insertChildNode(insert_pos, cloned)
+            parent.removeChildNode(node)
+            # Increment position for the next layer in the sorted list
+            insert_pos += 1
+    
+    
+    def handle_sort_gain(self):
+        self.sort_layers(gain_order=True)
+        
+    def handle_sort_loss(self):
+        self.sort_layers(gain_order=False)
+    
     
     def handle_run(self):
         # Access the layers and file path:
